@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finora – AI-Powered Personal Finance Manager</title>
+
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+    <!-- Firebase: Google Authentication + Cloud Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+
+    <!-- Progressive Web App (PWA) -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://cdn-icons-png.flaticon.com/512/2454/2454261.png"
+    />
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-theme="light">
+    <div class="container" id="app-content">
+      <header class="header-bar app-topbar">
+        <div class="header-content">
+          <div class="brand-heading"><h2 class="header-title">Finora</h2><span class="header-subtitle">Personal Finance Manager</span></div>
+          <div class="user-profile" id="user-profile" aria-live="polite">
+            <div class="user-avatar-wrap">
+              <img
+                id="user-photo"
+                class="user-avatar"
+                src=""
+                alt="Profile photo"
+                hidden
+                referrerpolicy="no-referrer"
+              />
+              <span id="guest-avatar" class="guest-avatar" aria-hidden="true"
+                >👤</span
+              >
+            </div>
+            <div class="user-profile-text">
+              <strong id="user-name">Guest</strong>
+              <span id="user-account-status">Local data</span>
+            </div>
+          </div>
+        </div>
+        <nav class="app-nav" aria-label="Primary dashboard navigation">
+          <button
+            type="button"
+            class="nav-tab active"
+            data-view-target="dashboard"
+          >
+            Dashboard
+          </button>
+          <button type="button" class="nav-tab" data-view-target="transactions">
+            Transactions
+          </button>
+          <button type="button" class="nav-tab" data-view-target="limits">
+            Limits
+          </button>
+          <button type="button" class="nav-tab" data-view-target="tools">
+            Tools
+          </button>
+          <button type="button" class="nav-tab" data-view-target="about">
+            About
+          </button>
+        </nav>
+        <div class="sync-info" id="sync-info" aria-live="polite">
+          <span id="sync-state-label">Local Mode</span><br />
+          <span id="last-sync">Updated: Never</span><br /><button type="button" id="retry-sync-btn" class="sync-retry-btn">Retry sync</button>
+        </div>
+        <div class="header-right-controls">
+          <button
+            class="hamburger-btn"
+            id="hamburger-btn"
+            onclick="toggleMobileMenu()"
+            aria-label="Toggle navigation menu"
+            aria-expanded="false"
+          >
+            <span class="ham-line"></span>
+            <span class="ham-line"></span>
+            <span class="ham-line"></span>
+          </button>
+          <button
+            class="theme-btn"
+            id="theme-toggle"
+            onclick="toggleTheme()"
+            title="Switch to dark mode"
+          >
+            &#127769;
+          </button>
+          <button
+            class="account-btn"
+            id="google-signin-btn"
+            type="button"
+            onclick="signInWithGoogle()"
+            title="Sign in with Google"
+          >
+            <span>G</span> Sign in
+          </button>
+          <button
+            class="account-btn account-btn-secondary"
+            id="google-signout-btn"
+            type="button"
+            onclick="signOutUser()"
+            title="Sign out"
+            hidden
+          >
+            Sign out
+          </button>
+        </div>
+      </header>
+      <div
+        class="mobile-menu-backdrop"
+        id="mobile-menu-backdrop"
+        onclick="closeMobileMenu()"
+      ></div>
+
+      <section class="view-page dashboard-page" data-view="dashboard">
+        <div class="dashboard">
+          <!-- Income Card -->
+          <div class="stat-card stat-card-income">
+            <div class="stat-card-icon">📥</div>
+            <div class="stat-card-body">
+              <span class="stat-label">Income</span>
+              <span class="stat-value">
+                <span class="currency-symbol">&#8377;</span
+                ><span id="disp-income">0</span>
+              </span>
+              <span class="stat-sub">Monthly reference</span>
+            </div>
+            <div class="stat-card-glow"></div>
+          </div>
+
+          <!-- Spent Card -->
+          <div class="stat-card stat-card-spent">
+            <div class="stat-card-icon">📤</div>
+            <div class="stat-card-body">
+              <span class="stat-label">Spent</span>
+              <span class="stat-value">
+                <span class="currency-symbol">&#8377;</span
+                ><span id="disp-expense">0</span>
+              </span>
+              <span class="stat-sub" id="spent-pct">0% of income</span>
+            </div>
+            <div class="stat-card-glow"></div>
+          </div>
+
+          <!-- Balance Card — sum of all wallets -->
+          <div class="stat-card stat-card-balance">
+            <div class="stat-card-icon">💰</div>
+            <div class="stat-card-body">
+              <span class="stat-label">Balance</span>
+              <span class="stat-value">
+                <span class="currency-symbol">&#8377;</span
+                ><span id="disp-balance">0</span>
+              </span>
+              <span class="stat-sub">All wallets combined</span>
+            </div>
+            <div class="stat-card-glow"></div>
+          </div>
+
+          <!-- Budget Rating Card -->
+          <div class="stat-card stat-card-rating">
+            <div class="stat-card-icon">⭐</div>
+            <div class="stat-card-body">
+              <span class="stat-label">Budget Rating</span>
+              <span class="stat-value" id="budget-rating">50/100</span>
+              <span class="stat-sub" id="budget-rating-label">Starting score</span>
+              <div class="rating-bar-wrap">
+                <div class="rating-bar" id="rating-bar-fill"></div>
+              </div>
+            </div>
+            <div class="stat-card-glow"></div>
+          </div>
+        </div>
+        <div class="insight-strip" aria-label="Smart spending insights">
+          <div class="insight-card">
+            <span>Daily burn</span>
+            <b id="daily-burn">0</b>
+          </div>
+          <div class="insight-card">
+            <span>Safe daily spend</span>
+            <b id="safe-daily-spend">0</b>
+          </div>
+          <div class="insight-card">
+            <span>Top category</span>
+            <b id="top-category">No data</b>
+          </div>
+          <div class="insight-card">
+            <span>Month pace</span>
+            <b id="month-pace">0%</b>
+          </div>
+        </div>
+        <section class="panel monthly-comparison-panel" aria-labelledby="monthly-comparison-title">
+          <div class="panel-heading-with-note">
+            <div><h3 id="monthly-comparison-title">Monthly Comparison</h3><p class="panel-helper">Compare this month with the previous month using recorded expenses.</p></div>
+            <span class="comparison-period" id="comparison-period">This month</span>
+          </div>
+          <div class="comparison-grid">
+            <div><span>Current month</span><strong id="comparison-current">₹0.00</strong></div>
+            <div><span>Previous month</span><strong id="comparison-previous">₹0.00</strong></div>
+            <div><span>Change</span><strong id="comparison-change">No data yet</strong></div>
+          </div>
+          <p class="comparison-note" id="comparison-note">Add transactions to see your monthly comparison.</p>
+        </section>
+
+        <div class="panel command-panel">
+          <div>
+            <h3>Smart Summary</h3>
+            <p id="smart-summary">
+              Add transactions to unlock budget pacing insights.
+            </p>
+          </div>
+          <div class="risk-meter" aria-label="Budget risk meter">
+            <span id="risk-score">0%</span>
+            <small id="risk-label">Low risk</small>
+          </div>
+        </div>
+
+        <!-- AI Anomaly Detection -->
+        <div
+          id="anomaly-strip"
+          class="anomaly-strip"
+          style="display: none"
+        ></div>
+
+        <div class="panel ai-panel" data-view="dashboard">
+          <div class="ai-insights-row">
+            <div class="ai-insights-health">
+              <h3>AI Insights</h3>
+              <div id="ai-health-msg">Analyzing...</div>
+              <div id="health-tag" class="health-badge">Wait...</div>
+            </div>
+            <div class="ai-insights-forecast">
+              <p class="forecast-label"><b>Next Month Forecast</b></p>
+              <p id="ai-prediction">&#8377;0.00</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="main-grid">
+        <div class="side-col">
+          <div class="panel view-module limits-shortcuts-panel" data-view="limits">
+            <h3>Manage Your Finances</h3>
+            <p class="panel-helper">Open only the tools you need to keep this page clean.</p>
+            <div class="quick-action-buttons limits-shortcuts">
+              <button type="button" class="btn-main" data-toggle-limit-module="financial-goals" aria-expanded="false">🎯 Financial Goals</button>
+              <button type="button" class="btn-secondary" data-toggle-limit-module="category-limits" aria-expanded="false">📊 Category Limits</button>
+              <button type="button" class="btn-secondary" data-toggle-limit-module="investment-tracker" aria-expanded="false">📈 SIP / Investment Tracker</button>
+            </div>
+          </div>
+          <div class="panel view-module collapsible-limit-module" id="financial-goals-module" data-limit-module="financial-goals" data-view="limits" hidden>
+            <h3>Financial Goals</h3>
+            <div class="currency-selector">
+              <label>Base Currency:</label>
+              <select id="currency-select" onchange="changeCurrency()">
+                <option value="INR">&#8377; INR</option>
+                <option value="USD">$ USD</option>
+                <option value="EUR">&euro; EUR</option>
+                <option value="GBP">&pound; GBP</option>
+              </select>
+            </div>
+
+            <div class="goals-row">
+              <input
+                type="number"
+                id="inc-val"
+                placeholder="Income"
+                min="0"
+                step="0.01"
+              />
+              <input
+                type="number"
+                id="save-val"
+                placeholder="Saving target"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div class="finance-period-row">
+              <div class="finance-period-field">
+                <label for="finance-from">Period Start</label>
+                <input type="date" id="finance-from" />
+              </div>
+              <div class="finance-period-field">
+                <label for="finance-to">Period End</label>
+                <input type="date" id="finance-to" />
+              </div>
+            </div>
+            <p class="finance-period-hint">
+              ⏰ You'll be notified on the end date to update your income,
+              wallets &amp; saving targets.
+            </p>
+
+            <button class="btn-main" onclick="updateFinance()">
+              Update Goals
+            </button>
+
+            <div class="current-settings">
+              <b>Current Financial Settings:</b><br />
+              Total Income: <span id="note-inc">0</span> | Saving Target:
+              <span id="note-goal">0</span>
+            </div>
+
+            <div class="progress-section">
+              <div class="progress-labels">
+                <span>Progress to Goal</span>
+                <span id="prog-percent">0%</span>
+              </div>
+              <div class="progress-container">
+                <div id="prog-bar" class="progress-bar"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel view-module wallet-quick-actions" data-view="transactions">
+            <div class="quick-action-copy"><strong>Manage your money</strong><span>Set up wallets and optional spending limits.</span></div>
+            <div class="quick-action-buttons">
+              <button type="button" class="btn-main" id="toggle-wallet-panel" aria-expanded="false">+ Add Wallet</button>
+              <button type="button" class="btn-secondary" id="open-limits-panel">Set Limits</button>
+              <button type="button" class="btn-secondary" id="toggle-wallet-transfer" aria-expanded="false">↔ Wallet Transfer</button>
+            </div>
+          </div>
+
+          <div class="panel view-module wallet-manager-panel wallet-form-collapsed" data-view="transactions" id="wallet-manager-panel">
+            <div class="panel-heading-with-note">
+              <div>
+                <h3>Add Wallet</h3>
+                <p class="wallet-helper">
+                  Create separate wallets for Bank, Cash, UPI, or other payment methods. Each wallet keeps its own balance.
+                </p>
+              </div>
+              <span class="wallet-count-badge" id="wallet-count-badge">Wallets</span>
+            </div>
+            <div class="goals-row wallet-form-row">
+              <input type="text" id="wallet-name" placeholder="Wallet name (e.g. HDFC Bank, Cash, UPI)" aria-label="Wallet name" />
+              <input
+                type="number"
+                id="wallet-balance"
+                placeholder="Opening balance"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div class="wallet-date-range-row">
+              <div class="wallet-date-field">
+                <label for="wallet-from"
+                  >Valid From <span class="optional-tag">optional</span></label
+                >
+                <input type="date" id="wallet-from" />
+              </div>
+              <div class="wallet-date-field">
+                <label for="wallet-to"
+                  >Valid To <span class="optional-tag">optional</span></label
+                >
+                <input type="date" id="wallet-to" />
+              </div>
+            </div>
+            <p class="wallet-date-hint">
+              📅 Set a date range to get notified when this wallet period ends.
+            </p>
+            <button class="btn-main" onclick="addWallet()">Add Wallet</button>
+            <div id="wallet-list" class="wallet-list"></div>
+          </div>
+
+          <div class="panel view-module wallet-transfer-panel wallet-transfer-collapsed" data-view="transactions" id="wallet-transfer-panel">
+            <h3>Wallet Transfer</h3>
+            <p class="panel-helper">Move money between your wallets. Transfers do not count as income or expenses.</p>
+            <div class="transfer-form-grid">
+              <label>From wallet<select id="transfer-from" required></select></label>
+              <label>To wallet<select id="transfer-to" required></select></label>
+              <label>Amount<input id="transfer-amount" type="number" min="0.01" step="0.01" placeholder="Amount to transfer" required /></label>
+              <label>Date<input id="transfer-date" type="date" required /></label>
+            </div>
+            <button type="button" class="btn-main" id="submit-wallet-transfer">Transfer Money</button>
+            <div id="transfer-history" class="transfer-history" aria-live="polite"></div>
+          </div>
+
+          <div class="panel view-module collapsible-limit-module" id="category-limits-module" data-limit-module="category-limits" data-view="limits" hidden>
+            <h3>Category Limits</h3>
+            <div class="goals-row">
+              <select id="cap-cat">
+                <option value="Food">Food</option>
+                <option value="Grocery">Grocery</option>
+                <option value="Vegetables">Vegetables</option>
+                <option value="Transport">Transport</option>
+                <option value="Rent">Rent</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Subscription">Subscription</option>
+                <option value="Free Trial">Free Trial</option>
+                <option value="Other">Other</option>
+              </select>
+              <input
+                type="number"
+                id="cap-val"
+                placeholder="Limit Amount"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <button class="btn-main" onclick="setCategoryCap()">
+              Set Limit
+            </button>
+            <label class="checkbox-label lock-toggle-label">
+              <input
+                type="checkbox"
+                id="budget-lock-mode"
+                onchange="toggleBudgetLock(this.checked)"
+              />
+              🔒 Lock mode — block new entries when a category limit is hit
+            </label>
+            <div id="caps-list"></div>
+          </div>
+
+          <div class="panel view-module collapsible-limit-module" id="investment-tracker-module" data-limit-module="investment-tracker" data-view="limits" hidden>
+            <h3>📈 SIP / Investment Tracker</h3>
+            <p class="panel-helper">
+              Log mutual funds, FDs and RDs separately from your daily budget,
+              with expected returns.
+            </p>
+            <div class="goals-row">
+              <input type="text" id="sip-name" placeholder="Fund / FD name" />
+              <select id="sip-type">
+                <option value="SIP">SIP</option>
+                <option value="FD">FD</option>
+                <option value="RD">RD</option>
+                <option value="Stocks">Stocks</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="goals-row">
+              <input
+                type="number"
+                id="sip-amount"
+                placeholder="Monthly / invested amount"
+                min="0"
+                step="0.01"
+              />
+              <input
+                type="number"
+                id="sip-returns"
+                placeholder="Expected return % p.a."
+                min="0"
+                step="0.1"
+                max="100"
+              />
+            </div>
+            <div class="goals-row">
+              <input type="date" id="sip-start" />
+              <input
+                type="number"
+                id="sip-tenure"
+                placeholder="Tenure (months)"
+                min="1"
+                step="1"
+              />
+            </div>
+            <button class="btn-main" onclick="addSIP()">Add Investment</button>
+            <div id="sip-list" class="sip-list"></div>
+          </div>
+
+          <div class="panel view-module" data-view="tools">
+            <h3>Advanced Tools</h3>
+
+            <!-- Web Push Notifications -->
+            <div class="push-notif-row">
+              <button
+                class="btn-export"
+                id="push-subscribe-btn"
+                onclick="subscribeToPushNotifications()"
+              >
+                🔔 Enable Push Notifications
+              </button>
+              <span id="push-status" class="tool-status"></span>
+            </div>
+
+            <div class="voice-controls-wrapper">
+              <button
+                id="voice-btn"
+                type="button"
+                class="btn-voice"
+                title="Start Voice Command"
+              >
+                Voice
+              </button>
+              <div class="voice-text">
+                <span id="voice-status"
+                  >Click to speak (e.g., "500 on Burger, Lunch...")</span
+                >
+              </div>
+            </div>
+            <div class="import-group">
+              <label for="import-file" class="btn-export"
+                >Import Data (JSON/CSV/Excel)</label
+              >
+              <input
+                type="file"
+                id="import-file"
+                accept=".json,.csv,.xlsx,.xls"
+                onchange="importData(event)"
+              />
+            </div>
+            <div class="import-group">
+              <label for="receipt-file" class="btn-export"
+                >Scan Receipt (OCR)</label
+              >
+              <input
+                type="file"
+                id="receipt-file"
+                accept="image/*"
+                capture="environment"
+                onchange="scanReceipt(event)"
+              />
+            </div>
+            <p id="ocr-status" class="tool-status"></p>
+            <div class="security-row">
+              <button class="btn-export" onclick="enableEncryptedStorage()">
+                Enable Encryption
+              </button>
+              <button class="btn-export" onclick="disableEncryptedStorage()">
+                Disable Encryption
+              </button>
+            </div>
+            <p id="security-status" class="tool-status">
+              Storage: Plain localStorage
+            </p>
+            <button
+              class="btn-export advanced-action"
+              onclick="exportDataJSON()"
+            >
+              Export Backup (JSON)
+            </button>
+            <div class="import-group backup-restore-group">
+              <label for="restore-backup-file" class="btn-export">Restore Finora Backup (JSON)</label>
+              <input type="file" id="restore-backup-file" accept=".json,application/json" />
+              <small>Restoring replaces the current local data. Export a backup first.</small>
+            </div>
+            <button class="btn-main danger-action" onclick="factoryReset()">
+              Factory Reset
+            </button>
+          </div>
+
+          <div class="panel view-module" data-view="tools">
+            <h3>🔄 Monthly Budget Reset</h3>
+            <p class="panel-helper">
+              At the start of each new month, your remaining balance is carried
+              forward into your Bank wallet automatically — so unspent money
+              rolls into next month instead of disappearing.
+            </p>
+            <div id="reset-status" class="reset-status-box"></div>
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                id="auto-reset-toggle"
+                onchange="toggleAutoReset(this.checked)"
+              />
+              Enable monthly carry-forward
+            </label>
+            <button
+              class="btn-export"
+              style="margin-top: 10px"
+              onclick="runManualReset()"
+            >
+              Run Reset Now
+            </button>
+          </div>
+
+          <div class="panel view-module" data-view="tools">
+            <h3>📧 Monthly Report</h3>
+
+            <p class="panel-helper">
+              Get a summary of your monthly spending sent to your email.
+            </p>
+
+            <!-- Send report -->
+            <div class="monthly-report-action email-report-form">
+              <label for="report-email"><strong>Email address</strong></label>
+              <input type="email" id="report-email" placeholder="you@example.com" autocomplete="email" required />
+              <button class="btn-main" onclick="saveReportEmail()">Save Email Address</button>
+              <button class="btn-export" onclick="window.sendMonthlyReport(false)">📩 Send Monthly Report</button>
+              <p id="email-status" class="tool-status" aria-live="polite">Enter your email address to receive your report.</p>
+            </div>
+
+            <!-- What's included -->
+            <div class="report-includes">
+              <h4>📋 What's included</h4>
+
+              <div class="report-items">
+                <span>✓ Total income</span>
+                <span>✓ Total spending</span>
+                <span>✓ Remaining balance</span>
+                <span>✓ Spending by category</span>
+                <span>✓ Transaction count</span>
+              </div>
+            </div>
+
+            <!-- Email configuration -->
+            <details class="email-settings">
+              <summary>⚙️ Email Settings</summary>
+
+              <div class="email-settings-content">
+                <div class="goals-row">
+                  <input
+                    type="text"
+                    id="emailjs-service"
+                    placeholder="EmailJS Service ID"
+                  />
+
+                  <input
+                    type="text"
+                    id="emailjs-template"
+                    placeholder="EmailJS Template ID"
+                  />
+                </div>
+
+                <div class="goals-row">
+                  <input
+                    type="text"
+                    id="emailjs-pubkey"
+                    placeholder="EmailJS Public Key"
+                  />
+
+
+                </div>
+
+                <button class="btn-main" onclick="saveEmailConfig()">
+                  Save Email Service Setup
+                </button>
+                <p class="panel-helper">One-time setup for the project maintainer. End users only need to enter their email address above. EmailJS Service ID, Template ID, and Public Key must be configured here before reports can be sent on a new browser.</p>
+
+                <p id="email-settings-status" class="tool-status"></p>
+              </div>
+            </details>
+          </div>
+
+          <div class="panel view-module" data-view="transactions">
+            <h3>Recurring Expenditure Insights</h3>
+            <div id="sub-list" class="subscription-list"></div>
+            <p class="fixed-commits">
+              Total Fixed Amount: <span id="fixed-total">0</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="content-col">
+          <div class="panel view-module new-transaction-panel" id="new-transaction-panel" data-view="transactions">
+            <h3>New Transaction</h3>
+            <div class="voice-controls-wrapper transaction-voice-wrapper">
+              <button
+                id="transaction-voice-btn"
+                type="button"
+                class="btn-voice"
+                title="Start Voice Transaction"
+              >
+                Voice
+              </button>
+              <div class="voice-text">
+                <span id="transaction-voice-status"
+                  >Speak a transaction, for example "50 on Chola Bhatura".</span
+                >
+              </div>
+            </div>
+            <div
+              class="quick-template-bar"
+              id="quick-template-bar"
+              aria-label="Quick transaction templates"
+            ></div>
+            <form id="exp-form">
+              <!-- Row 1: Amount | Category | Wallet -->
+              <div class="transaction-grid">
+                <input
+                  type="number"
+                  id="amt"
+                  placeholder="Amount"
+                  min="0.01"
+                  step="0.01"
+                  required
+                />
+                <select
+                  id="cat"
+                  required
+                  onchange="handleCategoryChange(this.value)"
+                >
+                  <option value="Food">Food</option>
+                  <option value="Grocery">Grocery</option>
+                  <option value="Vegetables">Vegetables</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Rent">Rent</option>
+                  <option value="Shopping">Shopping</option>
+                  <option value="Subscription">Subscription</option>
+                  <option value="Free Trial">Free Trial</option>
+                  <option value="Other">Other</option>
+                </select>
+                <select
+                  id="wallet"
+                  name="walletId"
+                  required
+                  title="Wallet used for this transaction"
+                ></select>
+              </div>
+
+              <!-- Shown only when Other is selected -->
+              <input
+                type="text"
+                id="custom-cat"
+                placeholder="Enter Custom Category Name"
+              />
+              <input
+                type="text"
+                id="subcat"
+                placeholder="Subcategory (optional)"
+                style="display: none"
+              />
+
+              <!-- Note: full width as before -->
+              <input
+                type="text"
+                id="note"
+                placeholder="Note (e.g. Netflix, Dinner...)"
+              />
+
+              <div class="date-recurring-row">
+                <input type="date" id="date" required />
+                <label class="checkbox-label">
+                  <input type="checkbox" id="is-recurring" />
+                  Recurring?
+                </label>
+              </div>
+
+              <button type="submit" class="btn-main save-action">
+                Save Locally
+              </button>
+            </form>
+          </div>
+
+          <div class="panel view-module transaction-history-panel" data-view="transactions">
+            <div class="history-heading-row">
+              <div class="history-heading-copy">
+                <h3>Transaction History</h3>
+                <p>Review, edit, and organize your transactions.</p>
+              </div>
+              <div class="history-heading-actions">
+                <button type="button" class="history-filter-toggle" id="toggle-filters" aria-expanded="false" aria-controls="history-filter-fields"><span aria-hidden="true">☷</span> Filters</button>
+                <button type="button" class="history-filter-toggle bulk-toggle-button" id="toggle-bulk-actions" aria-expanded="false" aria-controls="bulk-toolbar"><span aria-hidden="true">☑</span> Bulk actions <span id="bulk-toggle-count" class="bulk-toggle-count">0</span></button>
+              </div>
+            </div>
+            <fieldset class="history-filter" id="history-filter-fields" hidden>
+              <legend>Filter transactions</legend>
+              <div class="filter-row">
+                <div class="filter-group">
+                  <label>Start Date</label>
+                  <input type="date" id="filter-start" />
+                </div>
+
+                <div class="filter-group">
+                  <label>End Date</label>
+                  <input type="date" id="filter-end" />
+                </div>
+
+                <div class="filter-group search-group">
+                  <label>Search Notes</label>
+                  <input
+                    type="text"
+                    id="search-input"
+                    placeholder="Search keywords..."
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  class="btn-secondary btn-search-compact"
+                  onclick="applyTransactionFilters()"
+                >
+                  Search
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-secondary btn-reset-compact"
+                  onclick="clearFilters()"
+                >
+                  Reset
+                </button>
+              </div>
+            </fieldset>
+
+            <div class="table-container">
+              <div class="bulk-toolbar" id="bulk-toolbar" hidden>
+                <div class="bulk-toolbar-heading">
+                  <span class="bulk-toolbar-title">Bulk actions</span>
+                  <span id="bulk-count" class="bulk-selection-count">0 selected</span>
+                </div>
+                <div class="bulk-toolbar-controls">
+                  <label class="bulk-control">
+                    <span>Change category</span>
+                    <select id="bulk-category" aria-label="Change selected transactions to category">
+                  <option value="">Choose a category…</option>
+                  <option value="Food">Food</option>
+                  <option value="Grocery">Grocery</option>
+                  <option value="Vegetables">Vegetables</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Rent">Rent</option>
+                  <option value="Shopping">Shopping</option>
+                  <option value="Subscription">Subscription</option>
+                  <option value="Free Trial">Free Trial</option>
+                  <option value="Other">Other</option>
+                    </select>
+                  </label>
+                  <label class="bulk-control">
+                    <span>Move to wallet</span>
+                    <select id="bulk-wallet" aria-label="Move selected transactions to wallet">
+                      <option value="">Choose a wallet…</option>
+                    </select>
+                  </label>
+                  <div class="bulk-action-buttons">
+                    <button type="button" class="bulk-apply-btn" onclick="bulkApplyChanges()">Apply changes</button>
+                    <button type="button" class="bulk-delete-btn" onclick="bulkDeleteTransactions()"><span aria-hidden="true">🗑</span> Delete selected</button>
+                  </div>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th class="select-col">
+                      <input
+                        type="checkbox"
+                        id="select-all-transactions"
+                        onchange="toggleAllTransactions(this.checked)"
+                      />
+                    </th>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Note</th>
+                    <th>Amount</th>
+                    <th>Wallet</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="list-body"></tbody>
+              </table>
+            </div>
+            <div id="pagination" class="pagination"></div>
+
+            <div class="export-buttons">
+              <button class="btn-export" onclick="exportToExcel()">
+                Excel Export
+              </button>
+              <button class="btn-export" onclick="exportDetailedPDF()">
+                PDF Export
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="view-page advanced-analytics" data-view="dashboard">
+        <div class="panel">
+          <h3>Monthly Spending Trend</h3>
+          <div class="canvas-wrapper">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Budget vs. Actual</h3>
+          <div class="canvas-wrapper">
+            <canvas id="budgetBarChart"></canvas>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header-row">
+            <h3>Spending Heatmap</h3>
+            <div class="heatmap-nav">
+              <button type="button" class="btn-icon" onclick="heatmapNav(-1)">
+                &#8592;
+              </button>
+              <span id="heatmap-month-label"></span>
+              <button type="button" class="btn-icon" onclick="heatmapNav(1)">
+                &#8594;
+              </button>
+            </div>
+          </div>
+          <div id="spending-heatmap" class="spending-heatmap"></div>
+          <div class="heatmap-legend">
+            <span>Low</span>
+            <span class="heatmap-swatch heat-0"></span>
+            <span class="heatmap-swatch heat-1"></span>
+            <span class="heatmap-swatch heat-2"></span>
+            <span class="heatmap-swatch heat-3"></span>
+            <span class="heatmap-swatch heat-4"></span>
+            <span>High</span>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Spending by Category</h3>
+          <div class="canvas-wrapper">
+            <canvas id="categoryDoughnutChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="view-page about-page" data-view="about" hidden>
+        <div class="about-hero panel">
+          <p class="about-eyebrow">ABOUT THE PROJECT</p>
+          <h2>Finora – AI-Powered Personal Finance Manager</h2>
+          <h3>Empowering everyone to spend smart and save better.</h3>
+          <p>Balancing a monthly budget while managing cash, UPI, and bank accounts can be challenging. Finora brings everyday personal finance tasks into one unified platform so everyone can track spending, plan budgets, and work toward savings goals with greater clarity.</p>
+          <p class="about-version-line">Current release: <strong>v1.1.3</strong></p>
+        </div>
+        <div class="about-feature-grid">
+          <article class="panel about-feature"><span>💳</span><h3>Multi-Wallet Management</h3><p>Organize Bank, Cash, UPI, and other payment methods in one dashboard.</p></article>
+          <article class="panel about-feature"><span>📊</span><h3>Tracking &amp; Analytics</h3><p>Review income, expenses, categories, and spending trends through visual summaries.</p></article>
+          <article class="panel about-feature"><span>🎯</span><h3>Budgets &amp; Savings Goals</h3><p>Set a savings target and optional category-wise spending limits.</p></article>
+          <article class="panel about-feature"><span>🔎</span><h3>Spending Insights</h3><p>View rule-based spending indicators and estimated forecasts based on available transaction history.</p></article>
+          <article class="panel about-feature"><span>📱</span><h3>PWA &amp; Offline Support</h3><p>Use the installable web app with local data storage and cached app resources when offline.</p></article>
+          <article class="panel about-feature"><span>☁️</span><h3>Cloud Synchronization</h3><p>Sign in with Google to synchronize personal finance data through Firebase services.</p></article>
+        </div>
+        <div class="panel about-impact"><h3>Our Vision &amp; Impact</h3><p>Finora aims to encourage financial awareness and responsible spending for everyone. Its goals align broadly with SDG 8 (Decent Work and Economic Growth), SDG 9 (Industry, Innovation and Infrastructure), and SDG 12 (Responsible Consumption and Production).</p></div>
+        <div class="panel about-team">
+          <h3>Project Team</h3>
+          <p>Developed by Computer Science Engineering students · Session 2026–27</p>
+          <div class="about-team-grid">
+            <div class="team-member-card"><div class="member-details"><strong>Abdul Rahman Ali</strong><span>Project Lead · UI/UX · Integration</span></div><a href="https://www.linkedin.com/in/abdulrahmanaliyt/" target="_blank" rel="noopener noreferrer" class="linkedin-pill" title="Connect on LinkedIn"><svg class="li-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg> LinkedIn</a></div>
+            <div class="team-member-card"><div class="member-details"><strong>Abdul Rauf</strong><span>Frontend · PWA · Dashboard</span></div><a href="https://www.linkedin.com/in/abdul-rauf-65b963309/" target="_blank" rel="noopener noreferrer" class="linkedin-pill" title="Connect on LinkedIn"><svg class="li-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg> LinkedIn</a></div>
+            <div class="team-member-card"><div class="member-details"><strong>Abhishek Khatri</strong><span>ML · Data Analysis · Prediction</span></div><a href="https://www.linkedin.com/in/abhishek-khatri-3679b83a0/" target="_blank" rel="noopener noreferrer" class="linkedin-pill" title="Connect on LinkedIn"><svg class="li-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg> LinkedIn</a></div>
+            <div class="team-member-card"><div class="member-details"><strong>Aditi</strong><span>Backend · Testing · Documentation · Presentation</span></div><a href="https://www.linkedin.com/in/aditi-yadav-24b893412/" target="_blank" rel="noopener noreferrer" class="linkedin-pill" title="Connect on LinkedIn"><svg class="li-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg> LinkedIn</a></div>
+          </div>
+        </div>
+      </section>
+
+      <div id="edit-transaction-modal" class="edit-modal-backdrop" hidden>
+        <section class="edit-modal panel" role="dialog" aria-modal="true" aria-labelledby="edit-transaction-title">
+          <div class="edit-modal-heading"><h3 id="edit-transaction-title">Edit Transaction</h3><button type="button" id="edit-transaction-close" class="edit-modal-close" aria-label="Close edit transaction">×</button></div>
+          <form id="edit-transaction-form">
+            <label for="edit-transaction-amount">Amount</label><input id="edit-transaction-amount" type="number" min="0.01" step="0.01" required />
+            <label for="edit-transaction-category">Category</label><select id="edit-transaction-category" required><option>Food</option><option>Grocery</option><option>Vegetables</option><option>Transport</option><option>Rent</option><option>Shopping</option><option>Subscription</option><option>Free Trial</option><option>Other</option></select>
+            <label for="edit-transaction-wallet">Wallet</label><select id="edit-transaction-wallet" required></select>
+            <label for="edit-transaction-note">Note</label><input id="edit-transaction-note" type="text" maxlength="200" />
+            <label for="edit-transaction-date">Date</label><input id="edit-transaction-date" type="date" required />
+            <div class="edit-modal-actions"><button type="button" id="edit-transaction-cancel" class="btn-secondary">Cancel</button><button type="submit" class="btn-main">Save Changes</button></div>
+          </form>
+        </section>
+      </div>
+
+      <button type="button" id="floating-add-transaction" class="floating-add-transaction" aria-label="Add transaction" title="Add transaction">+</button>
+
+      <div id="first-visit-prompt" class="welcome-overlay" hidden>
+        <section class="welcome-dialog" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+          <div class="welcome-mark">F</div>
+          <h2 id="welcome-title">Welcome to Finora</h2>
+          <p>Sign in with Google to sync your finance data across devices. You can also continue in local mode and sign in later.</p>
+          <button type="button" id="welcome-signin" class="btn-main">Continue with Google</button>
+          <button type="button" id="welcome-guest" class="btn-secondary">Continue without signing in</button>
+          <small>Your financial data stays in your browser unless you sign in and enable cloud sync.</small>
+        </section>
+      </div>
+
+      <div
+        id="pwa-install-container"
+        class="panel install-card"
+        style="display: none"
+      >
+        <div class="install-card-content">
+          <div class="install-icon-wrapper">📲</div>
+          <div class="install-text-details">
+            <h4>Install Smart Budget Tracker</h4>
+            <p>Use the app like an app, even when you are offline.</p>
+          </div>
+        </div>
+        <button id="btn-pwa-install" class="btn-main" style="margin: 0">
+          Install App
+        </button>
+      </div>
+
+      <footer class="footer">
+        <p>
+          &copy; 2026 <span class="footer-copyright">Finora</span>.
+          All Rights Reserved.
+        </p>
+        <p class="footer-tagline">
+          Track smarter. Plan better. Spend with confidence.
+        </p>
+        <p class="app-version">Finora <span id="app-version">v1.1.3</span> · Updated October 2026</p>
+        <button type="button" class="footer-about-link" onclick="setActiveView('about')">About Finora</button>
+      </footer>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,51 @@
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log*
+firebase-debug.*.log*
+
+# Firebase cache
+.firebase/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Service-account private keys
+service-account*.json
+*-service-account*.json
+
+# Dependencies
+node_modules/
+bower_components/
+
+# Local development files
+.DS_Store
+Thumbs.db
+.npm/
+.node_repl_history
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage and testing
+coverage/
+.nyc_output/
+lib-cov/
+.eslintcache
+
+# Build artifacts and packages
+build/Release/
+*.tgz
+
+# Other generated files
+.grunt/
+.dataconnect/
