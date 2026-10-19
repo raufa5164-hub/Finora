@@ -119,10 +119,10 @@ Finora is a personal finance management project for organizing and reviewing fin
 
 ## Author
 
-**Abdul Rahman Ali**
+**Abdul Rauf**
 
-- GitHub: [@abdulrahmanaliyt](https://github.com/abdulrahmanaliyt)
-- Project: [Finora on GitHub](https://github.com/abdulrahmanaliyt/Finora)
+- GitHub: [@raufa5164-hub](https://github.com/raufa5164-hub/ABDUL-RAUF)
+- Project: [Finora on GitHub](https://github.com/raufa5164-hub/ABDUL-RAUF)
 - Live Demo: [finora-236a5.web.app](https://finora-236a5.web.app)
 
 ## License
