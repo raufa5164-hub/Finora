@@ -3,7 +3,7 @@
 Finora is a personal finance web application for organizing income, expenses, wallets, and financial goals in one place. It uses Firebase for authentication and cloud synchronization, with offline-first support to help users keep working when their internet connection is unavailable.
 
 **Live Demo:** https://finora-236a5.web.app  
-**GitHub Repository:** https://github.com/abdulrahmanaliyt/Finora
+**GitHub Repository:**https://github.com/raufa5164-hub/ABDUL-RAUF
 
 > Track smarter. Plan better. Take control of your money.
 
